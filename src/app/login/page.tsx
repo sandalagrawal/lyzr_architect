@@ -6,7 +6,7 @@ import { Github } from "@/components/icons";
 import { Logo } from "@/components/Logo";
 import { Button, Input, Label, toast } from "@/components/ui";
 import { useStore } from "@/lib/store";
-import { getSupabase, supabaseEnabled } from "@/lib/supabase";
+import { enabledProviders, getSupabase, supabaseEnabled } from "@/lib/supabase";
 import type { User } from "@/lib/types";
 import { resolveNext } from "@/lib/nav";
 
@@ -42,7 +42,7 @@ function LoginInner() {
   async function oauth(provider: "google" | "github") {
     setBusy(provider);
     const sb = getSupabase();
-    const realOAuth = (process.env.NEXT_PUBLIC_OAUTH_PROVIDERS || "").split(",").map((x) => x.trim()).includes(provider);
+    const realOAuth = (process.env.NEXT_PUBLIC_OAUTH_PROVIDERS || "").split(",").map((x) => x.trim()).includes(provider) || Boolean((await enabledProviders())[provider]);
     if (sb && realOAuth) {
       try {
         localStorage.setItem("a2.next", next || "");
