@@ -81,6 +81,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           name: meta.full_name || meta.name || meta.user_name || (s.user.email || "Builder").split("@")[0],
           avatar: meta.avatar_url,
           provider,
+          // profile choices live in Supabase user metadata so they survive sign-out and new devices
+          onboarded: Boolean(meta.onboarded) || Boolean(localUser && localUser.id === s.user.id && localUser.onboarded),
+          role: meta.role || (localUser && localUser.id === s.user.id ? localUser.role : undefined),
+          depthPref: meta.depth_pref || (localUser && localUser.id === s.user.id ? localUser.depthPref : undefined),
         };
         setUserState(u);
         write(LS_USER, u);
@@ -89,6 +93,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (rows && rows.length) {
           const remote = rows.map((r: { data: Project }) => r.data);
           setProjects(remote);
+          // someone with projects has clearly been onboarded already
+          if (!u.onboarded) {
+            u.onboarded = true;
+            setUserState({ ...u });
+            write(LS_USER, u);
+          }
           write(LS_PROJECTS, remote);
         }
       } else {
@@ -110,6 +120,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateUser = useCallback((patch: Partial<User>) => {
+    const sb = getSupabase();
+    if (sb && (patch.onboarded !== undefined || patch.role !== undefined || patch.depthPref !== undefined || patch.name !== undefined)) {
+      const data: Record<string, unknown> = {};
+      if (patch.onboarded !== undefined) data.onboarded = patch.onboarded;
+      if (patch.role !== undefined) data.role = patch.role;
+      if (patch.depthPref !== undefined) data.depth_pref = patch.depthPref;
+      if (patch.name !== undefined) data.full_name = patch.name;
+      sb.auth.getSession().then(({ data: sess }) => {
+        if (sess.session) sb.auth.updateUser({ data }).then(({ error }) => error && console.warn("[a2] profile save failed", error.message));
+      });
+    }
     setUserState((prev) => {
       if (!prev) return prev;
       const next = { ...prev, ...patch };

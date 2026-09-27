@@ -23,7 +23,9 @@ function Inner() {
 
   useEffect(() => {
     if (ready && !user) router.replace("/login");
-  }, [ready, user, router]);
+    // onboarding is one-time: returning users go straight in
+    if (ready && user?.onboarded) router.replace(resolveNext(next));
+  }, [ready, user, router, next]);
 
   useEffect(() => {
     if (role === "Software engineer") setDepth("code");
